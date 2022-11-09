@@ -4,8 +4,8 @@ import java.net.*;
 public class WebClient {
     
     public static void main(String[] args) throws IOException {
-        String url = "web.stanford.edu";
-        String path = "/dept/its/support/techtraining/techbriefing-media/Intro_Net_91407.ppt";
+        String url = "www-net.cs.umass.edu";
+        String path = "/wireshark-labs/Wireshark_Intro_v8.1.docx";
         try {
             //Create socket
             Socket socket = new Socket(url, 80); 
@@ -41,10 +41,9 @@ public class WebClient {
                 fos.close();
             }
             else{
-                //Folder Handling
-
+                
             }
-            
+            System.out.println("Success!");
             socket.close();
         } 
         catch (IOException e) {
