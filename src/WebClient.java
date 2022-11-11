@@ -6,11 +6,11 @@ public class WebClient {
 
   public static void main(String[] args)
     throws IOException, InterruptedException {
-    String url =
-      "www-net.cs.umass.edu/wireshark-labs/Wireshark_Intro_v8.1.docx";
+    String url = "example.com/";
 
     String host = url.substring(0, url.indexOf("/"));
     String path = url.substring(url.indexOf("/"));
+    if (path.equals("/")) path = "index.html";
 
     try {
       //Create socket
@@ -26,11 +26,8 @@ public class WebClient {
       req.print("\r\n");
       req.flush();
       socket.shutdownOutput();
-      String name = (path == "/")
-        ? "index.html"
-        : path.substring(path.lastIndexOf("/") + 1);
 
-      String fullPathName = "./binary/" + host + "_" + name;
+      String fullPathName = "./binary/" + host + "_" + path;
 
       File file = new File(fullPathName);
 
@@ -43,20 +40,6 @@ public class WebClient {
 
       byte[] buffer = new byte[1024];
       int len;
-      // while ((len = recv.read(buffer)) != -1) {
-      //   fos.write(buffer, 0, len);
-      // }
-
-      // Get header
-      BufferedReader r = new BufferedReader(
-        new InputStreamReader(recv, StandardCharsets.UTF_8)
-      );
-      String line;
-      while ((line = r.readLine()) != null) {
-        if (line.length() == 0) break;
-
-        System.out.println(line);
-      }
 
       // Get body
       while ((len = recv.read(buffer)) > 0) {
