@@ -1,20 +1,10 @@
 import java.io.*;
 import java.net.*;
-// import java.nio.file.Files;
-// import java.nio.file.Path;
-// import java.nio.file.Paths;
-// import java.util.ArrayList;
-// import java.util.List;
-// import java.util.stream.Collectors;
-// import java.util.stream.Stream;
-
-import java.nio.charset.StandardCharsets;
 
 public class WebClient {
-  // static String url =
-  //   "http://www-net.cs.umass.edu/wireshark-labs/Wireshark_Intro_v8.1.docx";
+  static String url ="http://web.stanford.edu/dept/its/support/techtraining/techbriefing-media/Intro_Net_91407.ppt";
 
-  static String url = "example.com";
+  // static String url = "example.com";
 
   //====== MAIN ======//
 
@@ -87,49 +77,32 @@ public class WebClient {
 
     // Send request to server
     ps.print("GET " + get() + " HTTP/1.1\r\n");
-    ps.print("HOST: " + host() + "\r\n");
+    ps.print("Host: " + host() + "\r\n");
     ps.print("\r\n");
     ps.flush();
     s.shutdownOutput();
 
-    // byte[] buffer = new byte[8192];
-    // // Write to file
-    // ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream(
-    //   8192
-    // );
-    // int read = bis.read();
-    // while (read != -1) {
-    //   byteArrayOutputStream.write((byte) read);
-    //   read = bis.read();
-    // }
-
-    // byteArrayOutputStream.flush();
-    // buffer = byteArrayOutputStream.toByteArray();
-
-    // fos.write(buffer);
-
-    int len;
-    int contentLength = 0;
-
-    BufferedReader r = new BufferedReader(new InputStreamReader(bis));
-    String line;
-    while ((line = r.readLine()) != null) {
-      if (line.equals("")) break;
-      if (line.startsWith("Content-Length: ")) {
-        contentLength = Integer.parseInt(line.substring(16));
-      }
-      System.out.println(line);
+    // Read response from server
+    int count, offset;
+    byte[] buffer = new byte[2048];
+    boolean eohFound = false;
+    while ((count = bis.read(buffer)) != -1)
+    {
+        offset = 0;
+        if(!eohFound){
+            String string = new String(buffer, 0, count);
+            int indexOfEOH = string.indexOf("\r\n\r\n");
+            if(indexOfEOH != -1) {
+                count = count-indexOfEOH-4;
+                offset = indexOfEOH+4;
+                eohFound = true;
+            } else {
+                count = 0;
+            }
+        }
+      fos.write(buffer, offset, count);
+      fos.flush();
     }
-
-    byte[] buffer = new byte[1024];
-
-    while ((len = bis.read(buffer)) > 0) {
-      fos.write(buffer, 0, len);
-    }
-
-    // RandomAccessFile raf = new RandomAccessFile(file, "rw");
-    // raf.setLength(contentLength + 1);
-    // raf.close();
 
     // Close streams
     fos.close();
