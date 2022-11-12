@@ -1,6 +1,5 @@
 import java.io.*;
 import java.net.*;
-
 // import java.nio.file.Files;
 // import java.nio.file.Path;
 // import java.nio.file.Paths;
@@ -9,11 +8,13 @@ import java.net.*;
 // import java.util.stream.Collectors;
 // import java.util.stream.Stream;
 
-// import java.nio.charset.StandardCharsets;
+import java.nio.charset.StandardCharsets;
 
 public class WebClient {
-  static String url =
-    "http://www-net.cs.umass.edu/wireshark-labs/Wireshark_Intro_v8.1.docx";
+  // static String url =
+  //   "http://www-net.cs.umass.edu/wireshark-labs/Wireshark_Intro_v8.1.docx";
+
+  static String url = "example.com";
 
   //====== MAIN ======//
 
@@ -21,9 +22,9 @@ public class WebClient {
     throws IOException, InterruptedException {
     url = url.replace("http://", "");
 
-    System.out.println(host());
-    System.out.println(get());
-    System.out.println(path());
+    System.out.println("Host: " + host());
+    System.out.println("Get: " + get());
+    System.out.println("Path: " + path());
 
     try {
       // Create socket
@@ -33,13 +34,6 @@ public class WebClient {
 
       if (isSubfolder()) {
         file.mkdirs();
-        // Path path = Paths.get(url);
-        // List<Path> paths;
-        // try (Stream<Path> walk = Files.walk(path)) {
-        //   paths =
-        //     walk.filter(Files::isRegularFile).collect(Collectors.toList());
-        // }
-        // paths.forEach(x -> System.out.println(x));
       } else {
         Download(socket, file);
       }
@@ -88,7 +82,7 @@ public class WebClient {
   private static void Download(Socket s, File file) throws IOException {
     // Initialize streams
     PrintStream ps = new PrintStream(s.getOutputStream());
-    BufferedInputStream bis = new BufferedInputStream(s.getInputStream());
+    InputStream bis = s.getInputStream();
     FileOutputStream fos = new FileOutputStream(file);
 
     // Send request to server
@@ -98,12 +92,44 @@ public class WebClient {
     ps.flush();
     s.shutdownOutput();
 
-    // Write to file
-    byte[] buffer = new byte[1024];
+    // byte[] buffer = new byte[8192];
+    // // Write to file
+    // ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream(
+    //   8192
+    // );
+    // int read = bis.read();
+    // while (read != -1) {
+    //   byteArrayOutputStream.write((byte) read);
+    //   read = bis.read();
+    // }
+
+    // byteArrayOutputStream.flush();
+    // buffer = byteArrayOutputStream.toByteArray();
+
+    // fos.write(buffer);
+
     int len;
-    while ((len = bis.read(buffer)) != -1) {
+    int contentLength = 0;
+
+    BufferedReader r = new BufferedReader(new InputStreamReader(bis));
+    String line;
+    while ((line = r.readLine()) != null) {
+      if (line.equals("")) break;
+      if (line.startsWith("Content-Length: ")) {
+        contentLength = Integer.parseInt(line.substring(16));
+      }
+      System.out.println(line);
+    }
+
+    byte[] buffer = new byte[1024];
+
+    while ((len = bis.read(buffer)) > 0) {
       fos.write(buffer, 0, len);
     }
+
+    // RandomAccessFile raf = new RandomAccessFile(file, "rw");
+    // raf.setLength(contentLength + 1);
+    // raf.close();
 
     // Close streams
     fos.close();
