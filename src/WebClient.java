@@ -2,9 +2,9 @@ import java.io.*;
 import java.net.*;
 
 public class WebClient {
-  static String url = "http://web.stanford.edu/class/cs231a/course_notes/";
+  static String url = "http://web.stanford.edu/class/cs224w/slides/08-GNN-application.pdf";
 
-  //====== MAIN ======//
+  //====== MAIN ======//  
 
   public static void main(String[] args)
     throws IOException, InterruptedException {
@@ -19,50 +19,12 @@ public class WebClient {
       PrintStream ps = new PrintStream(s.getOutputStream());
       InputStream is = s.getInputStream();
 
-      if (isSubfolder()) {
-        File folder = new File("./" + host() + "_" + fileName());
-        folder.mkdirs();
-        ps = new PrintStream(s.getOutputStream());
-
-        // Send request to server
-
-        ps.print("GET " + get() + " HTTP/1.1\r\n");
-        ps.print("Host: " + host() + "\r\n");
-        ps.print("\r\n");
-        ps.flush();
-
-        // Read response from server
-        BufferedReader br = new BufferedReader(
-          new InputStreamReader(s.getInputStream())
-        );
-        String line = br.readLine();
-
-        while (line != null) {
-          if (line.contains("href=\"")) {
-            int firstIndex = line.indexOf("href=\"") + 6;
-            int lastIndex = line.indexOf("\"", firstIndex);
-            String fileName = line.substring(firstIndex, lastIndex);
-
-            if (!fileName.contains("http://") && fileName.contains(".")) {
-              try {
-                System.out.println("Downloading " + fileName);
-                Download(s, is, ps, fileName);
-              } catch (Exception e) {
-                System.out.println("Error downloading " + fileName);
-              }
-            }
-          }
-          line = br.readLine();
-        }
-
-        br.close();
-      } else {
-        Download(s, is, ps, fileName());
-      }
+      Download(s, is, ps, fileName());
 
       System.out.println("Success!");
 
       // Close streams and socket
+      is.close();
       ps.close();
       s.close();
     } catch (IOException e) {
@@ -77,7 +39,7 @@ public class WebClient {
   }
 
   private static boolean isSubfolder() {
-    return !isRoot() && !url.substring(url.lastIndexOf("/") + 1).contains(".");
+    return !isRoot() && url.split("/").length > 2;
   }
 
   private static String host() {
@@ -90,7 +52,7 @@ public class WebClient {
   }
 
   private static String path(String fileName) {
-    if (isSubfolder()) return "./" + host() + "_" + fileName() + "/" + fileName;
+    // if (isSubfolder()) return "./" + host() + "_" + fileName() + "/" + fileName;
     return "./binary/" + host() + "_" + fileName;
   }
 
@@ -115,34 +77,49 @@ public class WebClient {
     FileOutputStream fos = new FileOutputStream(file);
 
     // Send request to server
-    ps.print("GET " + get() + fileName + " HTTP/1.1\r\n");
+    ps.print("GET " + get() + " HTTP/1.1\r\n");
     ps.print("Host: " + host() + "\r\n");
     ps.print("\r\n");
     ps.flush();
-    // s.shutdownOutput();
 
-    // Read response from server
-    int count, offset;
-    byte[] buffer = new byte[2048];
-    boolean eohFound = false;
-    while ((count = is.read(buffer)) != -1) {
-      offset = 0;
-      if (!eohFound) {
-        String string = new String(buffer, 0, count);
-        int indexOfEOH = string.indexOf("\r\n\r\n");
-        if (indexOfEOH != -1) {
-          count = count - indexOfEOH - 4;
-          offset = indexOfEOH + 4;
-          eohFound = true;
-        } else {
-          count = 0;
+    //Read header
+    byte[] header = new byte[2048];
+    int offset = 0;
+    int cnt = 0;
+    String headerStr = "";
+    while(true)
+    {
+        cnt = is.read(header, offset, 1);
+        if(header[offset] == (byte)'\n')
+        {
+            if(offset >= 3 && header[offset-1] == (byte)'\r' && header[offset-2] == (byte)'\n' && header[offset-3] == (byte)'\r')
+            {
+                break;
+            }
+        }         
+        offset+=cnt;   
+    }
+    headerStr = new String(header, 0, offset-1); 
+    if(headerStr.contains("Content-Length"))
+    {
+        int contentLength = Integer.parseInt(headerStr.split("Content-Length: ")[1].split("\r\n")[0]);
+        byte[] content = new byte[contentLength];
+        int contentOffset = 0;
+        while(contentOffset < contentLength)
+        {
+            cnt = is.read(content, contentOffset, contentLength - contentOffset);
+            contentOffset += cnt;
         }
-      }
-      fos.write(buffer, offset, count);
-      fos.flush();
+        fos.write(content);
+    }
+    else
+    {
+        int chunkSize = 0;
     }
 
-    is.close();
+
+    // Close stream
     fos.close();
   }
+
 }
