@@ -4,7 +4,7 @@ import java.net.*;
 public class WebClient {
   static String url = "http://web.stanford.edu/class/cs231a/course_notes/";
 
-  //====== MAIN ======//  
+  //====== MAIN ======//
 
   public static void main(String[] args)
     throws IOException, InterruptedException {
@@ -19,8 +19,8 @@ public class WebClient {
       PrintStream ps = new PrintStream(s.getOutputStream());
       InputStream is = s.getInputStream();
 
-      if(isSubfolder(url)){
-        File folder = new File("./binary/" + host(url) + "_" + fileName(url));
+      if (isSubfolder(url)) {
+        File folder = new File(fileName(url));
         folder.mkdirs();
 
         // Send GET request
@@ -30,53 +30,34 @@ public class WebClient {
         ps.flush();
 
         //Read header
-        byte[] header = new byte[2048];
-        int offset = 0;
-        int cnt = 0;
-        String headerStr = "";
-        while(true)
-        {
-            cnt = is.read(header, offset, 1); 
-            if(header[offset] == (byte)'\n')
-            {
-                if(offset >= 3 && header[offset-1] == (byte)'\r' && header[offset-2] == (byte)'\n' && header[offset-3] == (byte)'\r')
-                {
-                    break;
-                }
-            }         
-            offset+=cnt;   
-        }
-        headerStr = new String(header, 0, offset);
-        System.out.println(headerStr);
+        String header = new String(header(is));
+        System.out.println(header);
 
         //Read body with content length
-        int contentLength = Integer.parseInt(headerStr.substring(headerStr.indexOf("Content-Length: ") + 16, headerStr.indexOf("Content-Length: ") + 16 + headerStr.substring(headerStr.indexOf("Content-Length: ") + 16).indexOf("\r\n")));
-        byte[] body = new byte[contentLength];
-        offset = 0;
-        while(offset < contentLength)
-        {
-            cnt = is.read(body, offset, contentLength - offset);
-            offset += cnt;
-        }
-        String bodyStr = new String(body);
+        String body = new String(content(is, header));
 
-        for(int i = 0 ; i<bodyStr.length(); i++){
-          if(bodyStr.charAt(i) == 'h' && bodyStr.charAt(i+1) == 'r' && bodyStr.charAt(i+2) == 'e' && bodyStr.charAt(i+3) == 'f' && bodyStr.charAt(i+4) == '='){
-            int j = i+6;
-            while(bodyStr.charAt(j) != '"'){
+        for (int i = 0; i < body.length(); i++) {
+          if (
+            body.charAt(i) == 'h' &&
+            body.charAt(i + 1) == 'r' &&
+            body.charAt(i + 2) == 'e' &&
+            body.charAt(i + 3) == 'f' &&
+            body.charAt(i + 4) == '='
+          ) {
+            int j = i + 6;
+            while (body.charAt(j) != '"') {
               j++;
             }
-            String subUrl = bodyStr.substring(i+6, j);
+            String subUrl = body.substring(i + 6, j);
             System.out.println(subUrl);
-            if(subUrl.length() - subUrl.replace(".", "").length() > 0){
+            if (subUrl.length() - subUrl.replace(".", "").length() > 0) {
               System.out.println("Downloading " + url + subUrl);
               Download(s, is, ps, url + subUrl);
             }
           }
         }
-      }      
-      else{
-          Download(s, is, ps, url);
+      } else {
+        Download(s, is, ps, url);
       }
 
       System.out.println("Success!");
@@ -112,12 +93,50 @@ public class WebClient {
   private static String path(String url) {
     if (isRoot(url)) return "./binary/" + host(url) + "_" + "index.html";
     if (isSubfolder(url)) return "./binary/" + host(url) + "_" + get(url);
-    return "./binary/" + host(url) + "_" + url.substring(url.lastIndexOf("/") + 1);
+    return (
+      "./binary/" + host(url) + "_" + url.substring(url.lastIndexOf("/") + 1)
+    );
   }
 
   private static String fileName(String url) {
     if (isRoot(url)) return "index.html";
     return url.split("/")[url.split("/").length - 1];
+  }
+
+  private static byte[] header(InputStream is) throws IOException {
+    byte[] header = new byte[2048];
+    int offset = 0;
+
+    while (true) {
+      int cnt = is.read(header, offset, 1);
+      if (header[offset] == (byte) '\n') {
+        if (
+          offset >= 3 &&
+          header[offset - 1] == (byte) '\r' &&
+          header[offset - 2] == (byte) '\n' &&
+          header[offset - 3] == (byte) '\r'
+        ) {
+          break;
+        }
+      }
+      offset += cnt;
+    }
+    return header;
+  }
+
+  private static byte[] content(InputStream is, String header)
+    throws IOException {
+    int contentLength = Integer.parseInt(
+      header.split("Content-Length: ")[1].split("\r\n")[0]
+    );
+    byte[] content = new byte[contentLength];
+    int offset = 0;
+
+    while (offset < contentLength) {
+      int cnt = is.read(content, offset, contentLength - offset);
+      offset += cnt;
+    }
+    return content;
   }
 
   //====== SEND METHODS ======//
@@ -143,80 +162,43 @@ public class WebClient {
     ps.flush();
 
     //Read header
-    byte[] header = new byte[2048];
-    int offset = 0;
-    int cnt = 0;
-    String headerStr = "";
-    while(true)
-    {
-        cnt = is.read(header, offset, 1); 
-        if(header[offset] == (byte)'\n')
-        {
-            if(offset >= 3 && header[offset-1] == (byte)'\r' && header[offset-2] == (byte)'\n' && header[offset-3] == (byte)'\r')
-            {
-                break;
-            }
-        }         
-        offset+=cnt;   
-    }
-    headerStr = new String(header, 0, offset-1); 
-    if(headerStr.contains("Content-Length"))
-    {
-        int contentLength = Integer.parseInt(headerStr.split("Content-Length: ")[1].split("\r\n")[0]);
-        byte[] content = new byte[contentLength];
-        int contentOffset = 0;
-        while(contentOffset < contentLength)
-        {
-            cnt = is.read(content, contentOffset, contentLength - contentOffset);
-            contentOffset += cnt;
+    String header = new String(header(is));
+
+    if (header.contains("Content-Length")) {
+      byte content[] = content(is, header);
+      fos.write(content);
+    } else {
+      //Read chunk
+      byte[] chunk = new byte[2048];
+      int chunkOffset, chunkLength;
+      while (true) {
+        chunkOffset = chunkLength = 0;
+        //Read chunk length
+        while (true) {
+          int cnt = is.read(chunk, chunkOffset, 1);
+          if (
+            chunkOffset >= 1 &&
+            chunk[chunkOffset] == (byte) '\n' &&
+            chunk[chunkOffset - 1] == (byte) '\r'
+          ) break;
+          chunkOffset += cnt;
         }
-        fos.write(content);
-    }
-    else
-    {
-        System.out.println("Chunked");
-        //Read chunk
-        byte[] chunk = new byte[2048];
-        int chunkOffset = 0;
-        int chunkLength = 0;
-        while(true)
-        {
-            chunkOffset = 0;
-            chunkLength = 0;
-            //Read chunk length
-            while(true)
-            {
-                cnt = is.read(chunk, chunkOffset, 1); 
-                System.out.println(cnt);
-                if(chunk[chunkOffset] == (byte)'\n')
-                {
-                    if(chunkOffset >= 1 && chunk[chunkOffset-1] == (byte)'\r')
-                    {
-                        break;
-                    }
-                }         
-                chunkOffset+=cnt;   
-              }
-            chunkLength = Integer.parseInt(new String(chunk, 0, chunkOffset-1), 16);
-            System.out.println(chunkLength);
-            if(chunkLength == 0)
-            {
-                break;
-            }
-            chunk = new byte[chunkLength];
-            chunkOffset = 0;
-            while(chunkOffset < chunkLength)
-            {
-                cnt = is.read(chunk, chunkOffset, chunkLength - chunkOffset);
-                chunkOffset += cnt;
-            }
-            fos.write(chunk);
-            is.read(chunk, 0, 2);
+        chunkLength =
+          Integer.parseInt(new String(chunk, 0, chunkOffset - 1), 16);
+
+        if (chunkLength == 0) break;
+        chunk = new byte[chunkLength];
+        chunkOffset = 0;
+        while (chunkOffset < chunkLength) {
+          int cnt = is.read(chunk, chunkOffset, chunkLength - chunkOffset);
+          chunkOffset += cnt;
         }
+        fos.write(chunk);
+        is.read(chunk, 0, 2);
+      }
     }
 
     // Close stream
     fos.close();
   }
-
 }
