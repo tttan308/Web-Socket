@@ -10,22 +10,22 @@ public class WebClient {
     throws IOException, InterruptedException {
     url = url.replace("http://", "");
 
-    System.out.println("Host: " + host(url));
-    System.out.println("Get: " + get(url));
+    System.out.println("Host: " + host());
+    System.out.println("Get: " + get());
 
     try {
       // Create socket and streams
-      Socket s = new Socket(host(url), 80);
+      Socket s = new Socket(host(), 80);
       PrintStream ps = new PrintStream(s.getOutputStream());
       InputStream is = s.getInputStream();
 
-      if (isSubfolder(url)) {
-        File folder = new File(fileName(url));
+      if (isSubfolder()) {
+        File folder = new File(fileName());
         folder.mkdirs();
 
         // Send GET request
-        ps.print("GET " + get(url) + " HTTP/1.1\r\n");
-        ps.print("Host: " + host(url) + "\r\n");
+        ps.print("GET " + get() + " HTTP/1.1\r\n");
+        ps.print("Host: " + host() + "\r\n");
         ps.print("\r\n");
         ps.flush();
 
@@ -48,16 +48,16 @@ public class WebClient {
             while (body.charAt(j) != '"') {
               j++;
             }
-            String subUrl = body.substring(i + 6, j);
-            System.out.println(subUrl);
-            if (subUrl.length() - subUrl.replace(".", "").length() > 0) {
-              System.out.println("Downloading " + url + subUrl);
-              Download(s, is, ps, url + subUrl);
+            String fileName = body.substring(i + 6, j);
+            System.out.println(fileName);
+            if (fileName.length() - fileName.replace(".", "").length() > 0) {
+              System.out.println("Downloading " + fileName);
+              Download(s, is, ps, fileName);
             }
           }
         }
       } else {
-        Download(s, is, ps, url);
+        Download(s, is, ps, path(fileName()));
       }
 
       System.out.println("Success!");
@@ -73,33 +73,35 @@ public class WebClient {
 
   //====== CALL METHODS ======//
 
-  private static boolean isRoot(String url) {
+  private static boolean isRoot() {
     return url.length() - url.replace("/", "").length() == 1;
   }
 
-  private static boolean isSubfolder(String url) {
-    return !isRoot(url) && url.length() - url.replace(".", "").length() == 2;
+  private static boolean isSubfolder() {
+    return !isRoot() && url.length() - url.replace(".", "").length() == 2;
   }
 
-  private static String host(String url) {
+  private static String host() {
     return url.split("/")[0];
   }
 
-  private static String get(String url) {
-    if (isRoot(url)) return "/";
+  private static String get() {
+    if (isRoot()) return "/";
     return url.substring(url.indexOf("/", 8));
   }
 
-  private static String path(String url) {
-    if (isRoot(url)) return "./binary/" + host(url) + "_" + "index.html";
-    if (isSubfolder(url)) return "./binary/" + host(url) + "_" + get(url);
+  private static String path(String fileName) {
+    if (isRoot()) return "./binary/" + host() + "_" + "index.html";
+    if (isSubfolder()) return (
+      "./" + fileName() + "/" + host() + "_" + fileName
+    );
     return (
-      "./binary/" + host(url) + "_" + url.substring(url.lastIndexOf("/") + 1)
+      "./binary/" + host() + "_" + url.substring(url.lastIndexOf("/") + 1)
     );
   }
 
-  private static String fileName(String url) {
-    if (isRoot(url)) return "index.html";
+  private static String fileName() {
+    if (isRoot()) return "index.html";
     return url.split("/")[url.split("/").length - 1];
   }
 
@@ -145,18 +147,17 @@ public class WebClient {
     Socket s,
     InputStream is,
     PrintStream ps,
-    String url
+    String fileName
   )
     throws IOException {
     // Initialize file
-    File file = new File(path(url));
-    System.out.println(path(url));
+    File file = new File(path(fileName));
     // Initialize stream
     FileOutputStream fos = new FileOutputStream(file);
 
     // Send request to server
-    ps.print("GET " + get(url) + " HTTP/1.1\r\n");
-    ps.print("Host: " + host(url) + "\r\n");
+    ps.print("GET " + get() + fileName + " HTTP/1.1\r\n");
+    ps.print("Host: " + host() + "\r\n");
     ps.print("Connection: Keep-Alive\r\n");
     ps.print("\r\n");
     ps.flush();
@@ -165,15 +166,16 @@ public class WebClient {
     String header = new String(header(is));
 
     if (header.contains("Content-Length")) {
-      byte content[] = content(is, header);
+      byte[] content = content(is, header);
       fos.write(content);
     } else {
-      //Read chunk
+      // Read chunk
       byte[] chunk = new byte[2048];
       int chunkOffset, chunkLength;
       while (true) {
         chunkOffset = chunkLength = 0;
-        //Read chunk length
+
+        // Read chunk length
         while (true) {
           int cnt = is.read(chunk, chunkOffset, 1);
           if (
