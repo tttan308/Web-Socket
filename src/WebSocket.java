@@ -19,7 +19,7 @@ public class WebSocket extends Thread {
     }
 
     public static void ReplaceUrl() {
-        if(url.contains("https://")) url = url.replace("https://", "");
+        if(url.contains("https://"))url = url.replace("https://", "");
         else if(url.contains("http://")) url = url.replace("http://", "");
     }
 
@@ -97,14 +97,10 @@ public class WebSocket extends Thread {
         InputStream is = socket.getInputStream();
         PrintStream ps = new PrintStream(socket.getOutputStream());
 
-        System.out.println("GET " + get() + " HTTP/1.1");
-        System.out.println("Host: " + host());
         // Initialize file
         File file = new File(path(fileName));
-
         // Initialize stream
         FileOutputStream fos = new FileOutputStream(file);
-
         // Send request to server
         ps.print("GET " + get() + " HTTP/1.1\r\n");
         ps.print("Host: " + host() + "\r\n");
@@ -161,7 +157,7 @@ public class WebSocket extends Thread {
     public void run(){
         try {            
             if(isSubfolder()) DownloadFolder();
-            else Download(path(fileName()));
+            else Download(fileName());
         } catch (IOException e) {
             e.printStackTrace();
         }
