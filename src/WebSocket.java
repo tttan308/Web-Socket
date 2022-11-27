@@ -155,21 +155,9 @@ public class WebSocket implements Runnable {
         }
 
         System.out.println("Downloaded " + fileName + "!");
-        // Close stream
-        is.close();
-        ps.close();
+        
+        //close file
         fos.close();
-    }
-
-    synchronized public void run(){
-        try {   
-            Socket socket = createSocket();         
-            if(isSubfolder()) DownloadFolder(socket);
-            else Download(socket,fileName());
-            closeSocket(socket);
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
     }
 
     public static void DownloadFolder(Socket socket) throws IOException{
@@ -207,6 +195,8 @@ public class WebSocket implements Runnable {
             }
         }
         
+
+        // multiple sockets
         // for(String file : files){
         //     try(Socket s = createSocket()){
         //         Download(s, file);
@@ -215,62 +205,28 @@ public class WebSocket implements Runnable {
         //     }
         // }
 
+        // single socket
         for(String file : files){
             Download(socket, file);
         }
-
-        //Close stream
-        is.close();
-        ps.close();
     }
 
-    // public static void DownloadFolder() throws IOException{
 
-    //     ReplaceUrl();
-    //     Socket socket = createSocket(host(), 80);
-    //     InputStream is = socket.getInputStream();
-    //     PrintStream ps = new PrintStream(socket.getOutputStream());
-
-    //     File folder = new File("./binary/" + host() + "_" + fileName());
-    //     folder.mkdirs();
-
-    //     // Send GET request
-    //     ps.print("GET " + get() + " HTTP/1.1\r\n");
-    //     ps.print("Host: " + host() + "\r\n");
-    //     ps.print("Connection: Keep-Alive\r\n");
-    //     ps.print("\r\n");
-    //     ps.flush();
-
-    //     //Read header
-    //     String header = new String(header(is));
-    //     //Read header
-    //     header = new String(header(is));
+    @Override
+    public void run() {
+        // TODO Auto-generated method stub
+        synchronized (this) {
+            try(Socket socket = createSocket()){
+                if(!isSubfolder()) Download(socket, fileName());
+                else DownloadFolder(socket);
+                closeSocket(socket);
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
         
-    //     //Read body with content length
-    //     String body = new String(content(is, header));
-        
-    //     for (int i = 0; i < body.length(); i++) {
-    //         if (
-    //             body.charAt(i) == 'h' &&
-    //             body.charAt(i + 1) == 'r' &&
-    //             body.charAt(i + 2) == 'e' &&
-    //             body.charAt(i + 3) == 'f' &&
-    //             body.charAt(i + 4) == '='
-    //             ) {
-    //             int j = i + 6;
-    //             while (body.charAt(j) != '"') j++;
-    //             String fileName = body.substring(i + 6, j);
-    //             if (fileName.length() - fileName.replace(".", "").length() > 0){
-                    
-    //             }
-    //         }
-    //     }
+    }
 
-    //     //Close stream
-    //     is.close();
-    //     ps.close();
-    //     closeSocket(socket);
-
-    // }
+    
 
 }
