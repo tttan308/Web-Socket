@@ -97,9 +97,12 @@ public class WebSocket extends Thread {
         InputStream is = socket.getInputStream();
         PrintStream ps = new PrintStream(socket.getOutputStream());
 
+        System.out.println("GET " + get() + " HTTP/1.1");
+        System.out.println("Host: " + host());
         // Initialize file
         File file = new File(path(fileName));
         // Initialize stream
+        System.out.println("Downloading " + fileName + "...");
         FileOutputStream fos = new FileOutputStream(file);
         // Send request to server
         ps.print("GET " + get() + " HTTP/1.1\r\n");
@@ -147,6 +150,7 @@ public class WebSocket extends Thread {
             }
         }
 
+        System.out.println("Downloaded " + fileName + "!");
         // Close stream
         is.close();
         ps.close();
@@ -191,7 +195,7 @@ public class WebSocket extends Thread {
             fos.write(content);
         } else if(header.contains("Transfer-Encoding: chunked")) {
             // Read chunk
-            System.out.println("CHunk");
+            System.out.println("Chunk");
             byte[] chunk = new byte[2048];
             int chunkOffset, chunkLength;
             while (true) {
