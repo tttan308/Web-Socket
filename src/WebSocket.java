@@ -118,7 +118,6 @@ public class WebSocket implements Runnable {
 
         //Read header
         String header = new String(header(is));
-        System.out.println(header);
         if (header.contains("Content-Length")) {
             byte[] content = content(is, header);
             fos.write(content);
@@ -173,73 +172,6 @@ public class WebSocket implements Runnable {
         }
     }
 
-    public static boolean multipleRequest(Socket s, String fileName) throws IOException {
-
-        InputStream is = s.getInputStream();
-        PrintStream ps = new PrintStream(s.getOutputStream());
-        ps.print("GET " + get() + fileName + " HTTP/1.1\r\n");
-        ps.print("Host: " + host() + "\r\n");
-        ps.print("Connection: Keep-Alive\r\n");
-        ps.print("\r\n");
-        ps.flush();
-
-        // Initialize file
-        File file = new File(path(fileName));
-    
-        // Initialize stream
-        FileOutputStream fos = new FileOutputStream(file);
-        
-        //Read header
-        String header = new String(header(is));
-        System.out.println(header);
-
-        //Check connection-close
-        boolean check = false;
-        if(header.contains("Connection: keep-alive")) check = true;
-        if (header.contains("Content-Length")) {
-            byte[] content = content(is, header);
-            fos.write(content);
-        } else if(header.contains("Transfer-Encoding: chunked")) {
-            // Read chunk
-            System.out.println("Chunk");
-            byte[] chunk = new byte[2048];
-            int chunkOffset, chunkLength;
-            while (true) {
-                chunkOffset = chunkLength = 0;
-
-                // Read chunk length
-                while (true) {
-                int cnt = is.read(chunk, chunkOffset, 1);
-                if (
-                    chunkOffset >= 1 &&
-                    chunk[chunkOffset] == (byte) '\n' &&
-                    chunk[chunkOffset - 1] == (byte) '\r'
-                ) break;
-                chunkOffset += cnt;
-                }
-                chunkLength =
-                Integer.parseInt(new String(chunk, 0, chunkOffset - 1), 16);
-
-                if (chunkLength == 0) break;
-                chunk = new byte[chunkLength];
-                chunkOffset = 0;
-                while (chunkOffset < chunkLength) {
-                int cnt = is.read(chunk, chunkOffset, chunkLength - chunkOffset);
-                chunkOffset += cnt;
-                }
-                fos.write(chunk);
-                is.read(chunk, 0, 2);
-            }
-        }
-
-        // Close stream
-        is.close();
-        ps.close();
-        fos.close();
-
-        return check;
-    }
-
     public static void DownloadFolder(Socket socket) throws IOException{
         InputStream is = socket.getInputStream();
         PrintStream ps = new PrintStream(socket.getOutputStream());
@@ -275,13 +207,16 @@ public class WebSocket implements Runnable {
             }
         }
         
-        //Download files
+        // for(String file : files){
+        //     try(Socket s = createSocket()){
+        //         Download(s, file);
+        //         System.out.println("File " + url + file + " downloaded!");
+        //         closeSocket(s);
+        //     }
+        // }
+
         for(String file : files){
-            System.out.println("Downloading " + file);
-            Socket socket2 = createSocket();
-            Download(socket2, file);
-            closeSocket(socket2);
-            System.out.println("File " + url + file + " downloaded!");
+            Download(socket, file);
         }
 
         //Close stream
