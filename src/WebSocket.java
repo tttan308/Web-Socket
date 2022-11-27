@@ -2,25 +2,26 @@ import java.io.*;
 import java.net.*;
 import java.util.ArrayList;
 
-public class WebSocket extends Thread {
+public class WebSocket implements Runnable {
     private static String url;
 
     public WebSocket(String url) {
         WebSocket.url = url;
     }
 
-    public static Socket createSocket(String host, int port) throws IOException {
-        Socket socket = new Socket(host, port);
+    public static void ReplaceUrl() {
+        if(url.contains("https://")) url = url.replace("https://", "");
+        else if(url.contains("http://")) url = url.replace("http://", "");
+    }
+
+    public static Socket createSocket() throws IOException {
+        ReplaceUrl();
+        Socket socket = new Socket(host(), 80);
         return socket;
     }
 
     public static void closeSocket(Socket socket) throws IOException {
         socket.close();
-    }
-
-    public static void ReplaceUrl() {
-        if(url.contains("https://"))url = url.replace("https://", "");
-        else if(url.contains("http://")) url = url.replace("http://", "");
     }
 
     private static boolean isRoot() {
@@ -90,22 +91,26 @@ public class WebSocket extends Thread {
         return content;
     }
 
-    public void Download(String fileName) throws IOException {
-        //
-        ReplaceUrl();
-        Socket socket = createSocket(host(), 80);
+    public static void Download(Socket socket, String fileName) throws IOException {
+
         InputStream is = socket.getInputStream();
         PrintStream ps = new PrintStream(socket.getOutputStream());
 
-        System.out.println("GET " + get() + " HTTP/1.1");
-        System.out.println("Host: " + host());
         // Initialize file
         File file = new File(path(fileName));
         // Initialize stream
         System.out.println("Downloading " + fileName + "...");
         FileOutputStream fos = new FileOutputStream(file);
         // Send request to server
-        ps.print("GET " + get() + " HTTP/1.1\r\n");
+        if(isSubfolder()) {
+            ps.print("GET " + get() + fileName + " HTTP/1.1\r\n");
+            System.out.println("GET " + get() + fileName + " HTTP/1.1");
+        }
+        else{
+            ps.print("GET " + get() + " HTTP/1.1\r\n");
+            System.out.println("GET " + get() + " HTTP/1.1");
+        }
+        System.out.println("Host: " + host());
         ps.print("Host: " + host() + "\r\n");
         ps.print("Connection: Keep-Alive\r\n");
         ps.print("\r\n");
@@ -155,13 +160,14 @@ public class WebSocket extends Thread {
         is.close();
         ps.close();
         fos.close();
-        closeSocket(socket);
     }
 
-    public void run(){
-        try {            
-            if(isSubfolder()) DownloadFolder();
-            else Download(fileName());
+    synchronized public void run(){
+        try {   
+            Socket socket = createSocket();         
+            if(isSubfolder()) DownloadFolder(socket);
+            else Download(socket,fileName());
+            closeSocket(socket);
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -234,10 +240,7 @@ public class WebSocket extends Thread {
         return check;
     }
 
-    public static void DownloadFolder() throws IOException{
-
-        ReplaceUrl();
-        Socket socket = createSocket(host(), 80);
+    public static void DownloadFolder(Socket socket) throws IOException{
         InputStream is = socket.getInputStream();
         PrintStream ps = new PrintStream(socket.getOutputStream());
         
@@ -254,7 +257,7 @@ public class WebSocket extends Thread {
 
         //Read header
         String header = new String(header(is));
-        
+        System.out.println(header);
         //Read body with content length
         String body = new String(content(is, header));
         for (int i = 0; i < body.length(); i++) {
@@ -268,23 +271,22 @@ public class WebSocket extends Thread {
                 int j = i + 6;
                 while (body.charAt(j) != '"') j++;
                 String fileName = body.substring(i + 6, j);
-                if (fileName.length() - fileName.replace(".", "").length() > 0) files.add(url+fileName);
+                if (fileName.length() - fileName.replace(".", "").length() > 0) files.add(fileName);
             }
         }
-        // Read multithread file in folder
         
-        ArrayList<Thread> threads = new ArrayList<Thread>();
-        for (int i = 0; i < files.size(); i++) {
-            Thread t = new Thread(new WebSocket(files.get(i)));
-            threads.add(t);
-            t.start();
+        //Download files
+        for(String file : files){
+            System.out.println("Downloading " + file);
+            Socket socket2 = createSocket();
+            Download(socket2, file);
+            closeSocket(socket2);
+            System.out.println("File " + url + file + " downloaded!");
         }
 
-        
         //Close stream
         is.close();
         ps.close();
-        closeSocket(socket);
     }
 
     // public static void DownloadFolder() throws IOException{
