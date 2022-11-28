@@ -1,13 +1,14 @@
 import java.io.IOException;
-import java.util.concurrent.ExecutorService;
 
 public class mainSocket {
     public static void main(String[] args) throws InterruptedException, IOException{
-        String[] urls = {"http://web.stanford.edu/class/cs224w/slides/08-GNN-application.pdf","http://web.stanford.edu/class/cs231a/project.html"};
+        // String[] urls = {"web.stanford.edu/dept/its/support/techtraining/techbriefing-media/Intro_Net_91407.ppt","web.stanford.edu/class/cs224w/slides/08-GNN-application.pdf","web.stanford.edu/class/cs231a/project.html"};
         
-        ExecutorService executor = java.util.concurrent.Executors.newFixedThreadPool(2);
-        executor.execute(new WebSocket(urls[0]));
-        executor.execute(new WebSocket(urls[1]));
-        executor.shutdown();
+        // WebSocket ws = new WebSocket(urls);
+        // ws.downloadUrls();
+
+        WebSocket ws = new WebSocket("http://web.stanford.edu/class/cs143/handouts/") ; 
+        ws.download();
+
     }
 }
