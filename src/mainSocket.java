@@ -1,15 +1,14 @@
+import java.io.IOException;
+
 public class mainSocket {
-    public static void main(String[] args) throws InterruptedException{
+    public static void main(String[] args) throws InterruptedException, IOException{
+        String[] urls = {"http://web.stanford.edu/class/cs224w/slides/08-GNN-application.pdf","http://web.stanford.edu/class/cs231a/project.html"};
+        Runnable r1 = new WebSocket(urls[0]);
+        Thread t1 = new Thread(r1);
+        Runnable r2 = new WebSocket(urls[1]);
+        Thread t2 = new Thread(r2);
 
-        WebSocket WebSocket1 = new WebSocket("http://web.stanford.edu/class/cs224w/slides/01-intro.pdf");
-        
-        WebSocket WebSocket2 = new WebSocket("http://web.stanford.edu/class/cs231a/assignments.html");
-
-        Thread t1 = new Thread(WebSocket1);
-        Thread t2 = new Thread(WebSocket2);
-        System.out.println("Start");
         t1.start();
         t2.start();
-        System.out.println("mainSocket");
     }
 }

@@ -2,7 +2,7 @@ import java.io.*;
 import java.net.*;
 import java.util.ArrayList;
 
-public class WebSocket implements Runnable {
+public class WebSocket implements Runnable{
     private static String url;
 
     public WebSocket(String url) {
@@ -112,7 +112,7 @@ public class WebSocket implements Runnable {
         }
         System.out.println("Host: " + host());
         ps.print("Host: " + host() + "\r\n");
-        ps.print("Connection: Keep-Alive\r\n");
+        // ps.print("Connection: Keep-Alive\r\n");
         ps.print("\r\n");
         ps.flush();
 
@@ -155,6 +155,8 @@ public class WebSocket implements Runnable {
         }
 
         System.out.println("Downloaded " + fileName + "!");
+        
+        if(header.contains("Connection: close")) closeSocket(socket);
         
         //close file
         fos.close();
@@ -211,22 +213,26 @@ public class WebSocket implements Runnable {
         }
     }
 
+    public void download() throws IOException {
+        Socket socket = createSocket();
+        if (isSubfolder()) {
+            System.out.println("folder");
+            DownloadFolder(socket);
+        } else {
+            System.out.println("Download file");
+            Download(socket, fileName());
+        }
+        closeSocket(socket);
+    }
 
     @Override
     public void run() {
-        // TODO Auto-generated method stub
-        synchronized (this) {
-            try(Socket socket = createSocket()){
-                if(!isSubfolder()) Download(socket, fileName());
-                else DownloadFolder(socket);
-                closeSocket(socket);
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
+        try {
+            download();
+        } catch (IOException e) {
+            e.printStackTrace();
         }
-        
     }
 
-    
 
 }
