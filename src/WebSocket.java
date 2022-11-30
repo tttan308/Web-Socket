@@ -1,10 +1,13 @@
 import java.io.*;
 import java.net.*;
 import java.util.ArrayList;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
-public class WebSocket extends Thread {
+public class WebSocket implements Runnable {
 
     private static String url;
+
     private static String[] urls;
 
     public WebSocket(String url) {
@@ -29,8 +32,8 @@ public class WebSocket extends Thread {
     }
 
     public static Socket createSocket(String url) throws IOException {
-        Socket socket = new Socket();
-        socket.connect(new InetSocketAddress(host(url), 80), 10000);
+        Socket socket = new Socket(host(url), 80);
+        socket.setSoTimeout(10000);
         return socket;
     }
 
@@ -71,22 +74,27 @@ public class WebSocket extends Thread {
     }
 
     private static byte[] header(InputStream is) throws IOException, InterruptedException {
-        byte[] header = new byte[2048*2048];
+        byte[] header = new byte[2048];
         int offset = 0;
-        int dem = 0;
         while (true) {
-            int cnt = is.read(header, offset, 1);
-            // System.out.println(cnt);
-            if (cnt == -1 && dem!=0) break;
-            if (header[offset] == (byte) '\n') {
-            if (
-                offset >= 3 &&
-                header[offset - 1] == (byte) '\r' &&
-                header[offset - 2] == (byte) '\n' &&
-                header[offset - 3] == (byte) '\r'
-            ) break;
+            try {
+                int read = is.read(header, offset, 1);
+                if (read == -1) {
+                    throw new IOException("Connection closed");
+                }
+                if (header[offset] == (byte) '\n') {
+                    if (
+                        offset >= 3 &&
+                        header[offset - 1] == (byte) '\r' &&
+                        header[offset - 2] == (byte) '\n' &&
+                        header[offset - 3] == (byte) '\r'
+                    ) break;
+                }
+                offset += read;
+            } catch (SocketTimeoutException e) {
+                System.out.println("Socket timed out");
+                break;
             }
-            offset += cnt;
         }
         return header;
     }
@@ -96,11 +104,20 @@ public class WebSocket extends Thread {
             header.split("Content-Length: ")[1].split("\r\n")[0]
         );
         System.out.println("Content length: " + contentLength);
+
         byte[] content = new byte[contentLength];
         int offset = 0;
         while (offset < contentLength) {
-            int cnt = is.read(content, offset, contentLength - offset);
-            offset += cnt;
+            try{
+                int read = is.read(content, offset, contentLength - offset);
+                if (read == -1) {
+                    throw new IOException("Connection closed");
+                }
+                offset += read;
+            } catch (SocketTimeoutException e) {
+                System.out.println("Socket timed out");
+                break;
+            }
         }
         return content;
     }
@@ -133,8 +150,6 @@ public class WebSocket extends Thread {
         int chunkOffset, chunkLength;
         while (true) {
             chunkOffset = chunkLength = 0;
-
-            // Read chunk length
             while (true) {
                 int cnt = is.read(chunk, chunkOffset, 1);
                 if (
@@ -164,25 +179,41 @@ public class WebSocket extends Thread {
 
         // Initialize file
         File file = new File(path(url, fileName));
+
         // Initialize stream
         System.out.println("Downloading " + fileName + "...");
-        FileOutputStream fos = new FileOutputStream(file);
+
         // Send request to server
-        
         Request(ps, url, fileName);
-        
+    
         //Read header
         String header = new String(header(is));
 
         System.out.println(header);
         
-        if (header.contains("Content-Length"))downloadContentLength(fos, is, header);
-        else if(header.contains("Transfer-Encoding: chunked")) downloadChunked(fos, is);
-        System.out.println("Downloaded " + fileName + "!");
-        
-        // if(header.contains("Connection: close")) closeSocket(socket);
-        
-        //close file
+        if(header.contains("HTTP/1.1 200 OK")) {
+            FileOutputStream fos = new FileOutputStream(file);
+            if (header.contains("Content-Length: ")) {
+                downloadContentLength(fos, is, header);
+            }
+            else if (header.contains("Transfer-Encoding: chunked")) {
+                downloadChunked(fos, is);
+            }
+            System.out.println("Downloaded " + fileName + "!");   
+        }
+        else if(header.contains("HTTP/1.1 301 Moved Permanently")) {
+            String newUrl = header.split("Location: ")[ 1 ].split("\r\n")[0];
+            System.out.println("Redirecting to " + newUrl);
+            Download(is, ps, fileName, newUrl);
+        }
+        else if(header.contains("HTTP/1.1 404 Not Found")) {
+            System.out.println("File not found");
+            return ;
+        }
+        else {
+            System.out.println("Unknown error");
+            return ;
+        }    
     }
 
     public static ArrayList<String> getFileFromFolder(String body){
@@ -210,8 +241,8 @@ public class WebSocket extends Thread {
         PrintStream ps = new PrintStream(socket.getOutputStream());
         Request(ps, url, "");
     
-        
         DataInputStream is = new DataInputStream(socket.getInputStream());
+
         //Read header
         String header = new String(header(is));
         String body = new String(content(is, header));
@@ -219,7 +250,6 @@ public class WebSocket extends Thread {
 
         try{
             for(String file : files){
-                System.out.println("tai nay");
                 Download(is, ps, file, url);
                 System.out.println("File " + url + file + " downloaded!");
             }
@@ -245,8 +275,6 @@ public class WebSocket extends Thread {
         System.out.println(body);
         ArrayList<String> files = getFileFromFolder(body);
 
-        System.out.println("Xong phan body cua folder r");
-
         // multiple sockets
         for(String file : files){
             try(Socket s = new Socket(host(url), 80)){
@@ -264,22 +292,25 @@ public class WebSocket extends Thread {
         DataInputStream is = new DataInputStream(socket.getInputStream());
         PrintStream ps = new PrintStream(socket.getOutputStream());
         if (isSubfolder(url)) {
-            System.out.println("folder");
+            System.out.println("Download folder");
             DownloadFolderWithSingleSocket(socket);
         } else {
             System.out.println("Download file");
             Download(is, ps, fileName(url), url);
         }
+        is.close();
+        ps.close();
         closeSocket(socket);
-        System.out.println("Da dong socket tong");
+        System.out.println("Closed socket");
     }
 
     public void downloadUrlsWithThread() throws IOException, InterruptedException {
+        ExecutorService executor = Executors.newFixedThreadPool(urls.length);
         for(String url: urls){
             System.out.println(url);
-            Thread.sleep(1000);
-            new Thread(new WebSocket(url)).start();
+            executor.execute(new WebSocket(url));
         }
+        executor.shutdown();
     }
 
     public void run(){
@@ -289,20 +320,21 @@ public class WebSocket extends Thread {
             System.out.println(url);
             DataInputStream is = new DataInputStream(socket.getInputStream());
             PrintStream ps = new PrintStream(socket.getOutputStream());
+
             if (isSubfolder(url)) {
-                System.out.println("folder");
+                System.out.println("Download folder");
                 DownloadFolderWithSingleSocket(socket);
             } else {
                 System.out.println("Download file");
                 Download(is, ps, fileName(url), url);
             }
+            is.close();
+            ps.close();
             closeSocket(socket);
-            System.out.println("Da dong socket tong");
+            System.out.println("Da dong socket");
         } catch (IOException e) {
-            // TODO Auto-generated catch block
             e.printStackTrace();
         } catch (InterruptedException e) {
-            // TODO Auto-generated catch block
             e.printStackTrace();
         }
     }
