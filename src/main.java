@@ -13,8 +13,21 @@ public class main {
                 WebSocket ws = new WebSocket(args[0]);
                 ws.download();
             }
+            else if(args.length == 2){
+                for(String x : args) System.out.println(x);
+                if(args[1].contains("-s")){
+                    System.out.println("Donwload folder with single sockets");
+                    WebSocket ws = new WebSocket(args[0]);
+                    ws.DownloadFolderWithSingleSocket();
+                }
+                else{
+                    System.out.println("Download multithread with multiple URLs");
+                    WebSocket ws = new WebSocket(args);
+                    ws.downloadUrlsWithThread();
+                }
+            }
             else{
-                System.out.println("Download with multithread with multiple URLs");
+                System.out.println("Download multithread with multiple URLs");
                 WebSocket ws = new WebSocket(args);
                 ws.downloadUrlsWithThread();
             }

@@ -41,24 +41,24 @@ public class WebSocket implements Runnable {
         socket.close();
     }
 
-    private static boolean isRoot(String url) {
+    public static boolean isRoot(String url) {
         return (url.length() - url.replace("/", "").length() == 1 && url.charAt(url.length() - 1) == '/') || (url.length() - url.replace("/", "").length() == 0);
     }
 
-    private static boolean isSubfolder(String url) {
+    public static boolean isSubfolder(String url) {
         return !isRoot(url) && url.length() - url.replace(".", "").length() <= 2 && url.charAt(url.length() - 1) == '/';
     }
 
-    private static String host(String url) {
+    public static String host(String url) {
         return url.split("/")[0];
     }
 
-    private static String get(String url) {
+    public static String get(String url) {
         if (isRoot(url)) return "/";
         return url.substring(url.indexOf("/", 8));
     }
 
-    private static String path(String url, String fileName) {
+    public static String path(String url, String fileName) {
         if (isRoot(url) || (!get(url).contains(".") && get(url).charAt(get(url).length()-1) != '/')) return "./binary/" + host(url) + "_" + "index.html";
         if (isSubfolder(url)) return (
             "./binary/" + host(url) + "_" + fileName(url) + "/" + host(url) + "_" + fileName
@@ -68,12 +68,17 @@ public class WebSocket implements Runnable {
         );
     }
 
-    private static String fileName(String url) {
+    public static String pathFolder(String url, String fileName){
+        return (
+            "./binary/" + host(WebSocket.url) + "_" + fileName(WebSocket.url) + "/" + fileName
+        );
+    }
+    public static String fileName(String url) {
         if (isRoot(url)) return "index.html";
         return url.split("/")[url.split("/").length - 1];
     }
 
-    private static byte[] header(InputStream is) throws IOException, InterruptedException {
+    public static byte[] header(InputStream is) throws IOException, InterruptedException {
         byte[] header = new byte[2048];
         int offset = 0;
         while (true) {
@@ -99,7 +104,7 @@ public class WebSocket implements Runnable {
         return header;
     }
 
-    private static byte[] content(DataInputStream is, String header) throws IOException {
+    public static byte[] content(DataInputStream is, String header) throws IOException {
         int contentLength = Integer.parseInt(
             header.split("Content-Length: ")[1].split("\r\n")[0]
         );
@@ -123,16 +128,9 @@ public class WebSocket implements Runnable {
     }
 
     public static void Request(PrintStream ps, String url, String fileName) {
-        if(isSubfolder(url)) {
-            ps.print("GET " + get(url) + fileName + " HTTP/1.1\r\n");
-            System.out.println("GET " + get(url) + fileName + " HTTP/1.1");
-        }
-        else{
-            ps.print("GET " + get(url) + " HTTP/1.1\r\n");
-            System.out.println("GET " + get(url) + " HTTP/1.1");
-        }
+        if(isSubfolder(url)) ps.print("GET " + get(url) + fileName + " HTTP/1.1\r\n");
+        else ps.print("GET " + get(url) + " HTTP/1.1\r\n");
         ps.print("Host:" + host(url) + "\r\n");
-        System.out.println("Host: " + host(url));
         ps.print("Connection: Keep-Alive\r\n");
         ps.print("\r\n");
         ps.flush();
@@ -177,9 +175,6 @@ public class WebSocket implements Runnable {
 
     public static void Download(DataInputStream is, PrintStream ps, String fileName, String url) throws IOException, InterruptedException {
 
-        // Initialize file
-        File file = new File(path(url, fileName));
-
         // Initialize stream
         System.out.println("Downloading " + fileName + "...");
 
@@ -189,9 +184,13 @@ public class WebSocket implements Runnable {
         //Read header
         String header = new String(header(is));
 
-        System.out.println(header);
-        
         if(header.contains("HTTP/1.1 200 OK")) {
+            File file;
+            if(isSubfolder(WebSocket.url)){
+                file = new File(pathFolder(url, fileName));
+            }
+            else file = new File(path(url, fileName));
+            System.out.println(file);
             FileOutputStream fos = new FileOutputStream(file);
             if (header.contains("Content-Length: ")) {
                 downloadContentLength(fos, is, header);
@@ -272,7 +271,7 @@ public class WebSocket implements Runnable {
         //Read header
         String header = new String(header(is));
         String body = new String(content(is, header));
-        System.out.println(body);
+
         ArrayList<String> files = getFileFromFolder(body);
 
         // multiple sockets
@@ -288,12 +287,11 @@ public class WebSocket implements Runnable {
     public void download() throws IOException, InterruptedException {
         ReplaceUrl();
         Socket socket = createSocket(url);
-        System.out.println(url);
         DataInputStream is = new DataInputStream(socket.getInputStream());
         PrintStream ps = new PrintStream(socket.getOutputStream());
         if (isSubfolder(url)) {
             System.out.println("Download folder");
-            DownloadFolderWithSingleSocket(socket);
+            DownloadFolderWithMultipleSocket(socket);
         } else {
             System.out.println("Download file");
             Download(is, ps, fileName(url), url);
@@ -305,12 +303,23 @@ public class WebSocket implements Runnable {
     }
 
     public void downloadUrlsWithThread() throws IOException, InterruptedException {
-        ExecutorService executor = Executors.newFixedThreadPool(urls.length);
-        for(String url: urls){
-            System.out.println(url);
-            executor.execute(new WebSocket(url));
+        for (String url : urls) {
+            Thread.sleep(1000);
+            new Thread(new WebSocket(url)).start();
         }
-        executor.shutdown();
+}
+
+
+    public void DownloadFolderWithSingleSocket() throws IOException, InterruptedException{
+        ReplaceUrl();
+        Socket socket = createSocket(url);
+        if(!isSubfolder(url)){
+            System.out.println("Please enter the url of the folder if you want to download with multiple sockets");
+            return;
+        }
+        DownloadFolderWithSingleSocket(socket);
+        closeSocket(socket);
+        System.out.println("Closed socket");
     }
 
     public void run(){
@@ -331,7 +340,7 @@ public class WebSocket implements Runnable {
             is.close();
             ps.close();
             closeSocket(socket);
-            System.out.println("Da dong socket");
+            System.out.println("Closed socket");
         } catch (IOException e) {
             e.printStackTrace();
         } catch (InterruptedException e) {
