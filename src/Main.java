@@ -1,6 +1,6 @@
 import java.io.IOException;
 
-public class main {
+public class Main {
     public static void main(String[] args) throws InterruptedException, IOException
     {
             if(args.length == 0){
