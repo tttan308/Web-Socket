@@ -8,15 +8,13 @@ public class main {
                 System.exit(0);
             }
             else if(args.length == 1){
-                System.out.println("Donwload 1 url");
-                System.out.println(args[0]);
+                System.out.println("Download 1 url");
                 WebSocket ws = new WebSocket(args[0]);
                 ws.download();
             }
             else if(args.length == 2){
-                for(String x : args) System.out.println(x);
                 if(args[1].contains("-s")){
-                    System.out.println("Donwload folder with single sockets");
+                    System.out.println("Download folder with single sockets");
                     WebSocket ws = new WebSocket(args[0]);
                     ws.DownloadFolderWithSingleSocket();
                 }

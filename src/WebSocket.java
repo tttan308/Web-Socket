@@ -1,10 +1,9 @@
 import java.io.*;
-import java.net.*;
+import java.net.Socket;
+import java.net.SocketTimeoutException;
 import java.util.ArrayList;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 
-public class WebSocket implements Runnable {
+public class WebSocket {
 
     private static String url;
 
@@ -33,7 +32,7 @@ public class WebSocket implements Runnable {
 
     public static Socket createSocket(String url) throws IOException {
         Socket socket = new Socket(host(url), 80);
-        socket.setSoTimeout(10000);
+        socket.setSoTimeout(20000);
         return socket;
     }
 
@@ -79,26 +78,27 @@ public class WebSocket implements Runnable {
     }
 
     public static byte[] header(InputStream is) throws IOException, InterruptedException {
-        byte[] header = new byte[2048];
+        byte[] header = new byte[1024];
         int offset = 0;
         while (true) {
             try {
                 int read = is.read(header, offset, 1);
-                if (read == -1) {
-                    throw new IOException("Connection closed");
+
+                if(read == -1) {
+                    System.out.println("Connection closed");
+                    System.exit(0);
                 }
-                if (header[offset] == (byte) '\n') {
-                    if (
-                        offset >= 3 &&
-                        header[offset - 1] == (byte) '\r' &&
-                        header[offset - 2] == (byte) '\n' &&
-                        header[offset - 3] == (byte) '\r'
-                    ) break;
-                }
+                if (
+                    offset >= 4 &&
+                    header[offset - 1] == (byte) '\r' &&
+                    header[offset - 2] == (byte) '\n' &&
+                    header[offset - 3] == (byte) '\r' &&
+                    header[offset] == (byte) '\n'
+                ) break;
                 offset += read;
             } catch (SocketTimeoutException e) {
-                System.out.println("Socket timed out");
-                break;
+                System.out.println("Socket timed out, close program.");
+                System.exit(0);
             }
         }
         return header;
@@ -108,20 +108,15 @@ public class WebSocket implements Runnable {
         int contentLength = Integer.parseInt(
             header.split("Content-Length: ")[1].split("\r\n")[0]
         );
-        System.out.println("Content length: " + contentLength);
-
         byte[] content = new byte[contentLength];
         int offset = 0;
         while (offset < contentLength) {
             try{
                 int read = is.read(content, offset, contentLength - offset);
-                if (read == -1) {
-                    throw new IOException("Connection closed");
-                }
                 offset += read;
             } catch (SocketTimeoutException e) {
-                System.out.println("Socket timed out");
-                break;
+                System.out.println("Socket timed out, close program.");
+                System.exit(0);
             }
         }
         return content;
@@ -186,11 +181,8 @@ public class WebSocket implements Runnable {
 
         if(header.contains("HTTP/1.1 200 OK")) {
             File file;
-            if(isSubfolder(WebSocket.url)){
-                file = new File(pathFolder(url, fileName));
-            }
+            if(isSubfolder(WebSocket.url))file = new File(pathFolder(url, fileName));
             else file = new File(path(url, fileName));
-            System.out.println(file);
             FileOutputStream fos = new FileOutputStream(file);
             if (header.contains("Content-Length: ")) {
                 downloadContentLength(fos, is, header);
@@ -274,6 +266,7 @@ public class WebSocket implements Runnable {
 
         ArrayList<String> files = getFileFromFolder(body);
 
+        closeSocket(socket);
         // multiple sockets
         for(String file : files){
             try(Socket s = new Socket(host(url), 80)){
@@ -305,7 +298,7 @@ public class WebSocket implements Runnable {
     public void downloadUrlsWithThread() throws IOException, InterruptedException {
         for (String url : urls) {
             Thread.sleep(1000);
-            new Thread(new WebSocket(url)).start();
+            new Thread((Runnable) new WebSocket(url)).start();
         }
 }
 
@@ -331,10 +324,8 @@ public class WebSocket implements Runnable {
             PrintStream ps = new PrintStream(socket.getOutputStream());
 
             if (isSubfolder(url)) {
-                System.out.println("Download folder");
                 DownloadFolderWithSingleSocket(socket);
             } else {
-                System.out.println("Download file");
                 Download(is, ps, fileName(url), url);
             }
             is.close();
