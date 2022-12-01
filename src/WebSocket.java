@@ -78,7 +78,7 @@ public class WebSocket implements Runnable {
     }
 
     public static byte[] header(InputStream is) throws IOException, InterruptedException {
-        byte[] header = new byte[1024];
+        byte[] header = new byte[2048];
         int offset = 0;
         while (true) {
             try {
@@ -195,6 +195,8 @@ public class WebSocket implements Runnable {
         else if(header.contains("HTTP/1.1 301 Moved Permanently")) {
             String newUrl = header.split("Location: ")[ 1 ].split("\r\n")[0];
             System.out.println("Redirecting to " + newUrl);
+            newUrl =newUrl.replace("http://", "");
+            newUrl =newUrl.replace("https://", "");
             Download(is, ps, fileName, newUrl);
         }
         else if(header.contains("HTTP/1.1 404 Not Found")) {
