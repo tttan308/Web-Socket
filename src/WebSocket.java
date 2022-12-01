@@ -3,7 +3,7 @@ import java.net.Socket;
 import java.net.SocketTimeoutException;
 import java.util.ArrayList;
 
-public class WebSocket {
+public class WebSocket implements Runnable {
 
     private static String url;
 
@@ -32,7 +32,7 @@ public class WebSocket {
 
     public static Socket createSocket(String url) throws IOException {
         Socket socket = new Socket(host(url), 80);
-        socket.setSoTimeout(20000);
+        socket.setSoTimeout(30000);
         return socket;
     }
 
@@ -298,7 +298,7 @@ public class WebSocket {
     public void downloadUrlsWithThread() throws IOException, InterruptedException {
         for (String url : urls) {
             Thread.sleep(1000);
-            new Thread((Runnable) new WebSocket(url)).start();
+            new Thread(new WebSocket(url)).start();
         }
 }
 

@@ -1,0 +1,440 @@
+\documentclass[11pt]{article}
+\usepackage[T1]{fontenc}
+\usepackage{textcomp,lmodern,fixcmex}
+\usepackage[margin=1in]{geometry}
+\usepackage{mathtools}
+\usepackage{makebox}
+\usepackage{listings}
+\usepackage{ebproof}
+\usepackage{calc}
+\usepackage[pdfusetitle]{hyperref}
+
+\renewcommand{\epsilon}{\varepsilon}
+\newcommand{\gor}{\mathrel{\makebox*{$\to$}{$|$}}}
+\newcommand{\kw}[1]{\ensuremath{\mathbf{#1}}}
+
+\DeclarePairedDelimiter\angl{\langle}{\rangle}
+\DeclarePairedDelimiter\Brack{\text{\textlbrackdbl}}{\text{\textrbrackdbl}}
+
+\lstdefinelanguage{cool}{
+    morekeywords={class,else,fi,if,in,inherits,let,loop,pool,then,while,case,esac,of,new,isvoid,true,false,self,not},
+    morecomment=[l]{--},
+    morecomment=[n]{(*}{*)},
+    morestring=[b]",
+    alsoother={@},
+}
+
+\lstdefinelanguage{asm}{
+    morekeywords={push,top,pop,swap,jump,print},
+    morecomment=[l]{//},
+}
+
+\lstset{
+    language=cool,
+    breaklines=true,
+    keywordstyle=\bfseries,
+    stringstyle=\ttfamily,
+    upquote=true,
+    emphstyle=\itshape,
+    columns=flexible,
+    literate={<-}{{$\gets$}}2 {<=}{{$\le$}}1,
+    showstringspaces=false,
+    numbers=left,
+    numberstyle=\tiny,
+    escapeinside={(*@}{@*)},
+}
+
+\title{CS143 Spring 2022 -- Written Assignment 3}
+\newcommand\duedate{Tuesday, May 17, 2022 at 11:59 \textsc{pm pdt}}
+
+\begin{document}
+\begin{center}
+% Change this:
+\LARGE YOURNAME -- SUNETID \\
+\LARGE CS143 Spring 2022 -- Written Assignment 3
+\end{center}
+
+This assignment covers semantic analysis, including scoping and type systems.
+You may discuss this assignment with other students and work on the problems
+together. However, your write-up should be your own individual work, and you
+should indicate in your submission who you worked with, if applicable.
+Assignments can be submitted electronically through Gradescope as a
+\textsc{pdf} by \duedate. Please review the course policies for more
+information: \url{https://web.stanford.edu/class/cs143/policies/}. A \LaTeX{}
+template for writing your solutions is available on the course website.
+
+\begin{enumerate}
+% Problem 1
+\item Consider the following Cool programs:
+\begin{enumerate}
+    \item ~
+    \begin{lstlisting}[gobble=4, emph={x,io,a,b,c}, basicstyle=\small]
+    class A {
+        x: A;   (*@\label{p1a:ln2}@*)
+        baz(): A {x <- new SELF_TYPE};
+        bar(): A {baz()};
+        foo(): String {"am"};
+    };
+    class B inherits A {
+        foo(): String {"I "};
+    };
+    class C inherits A {
+        baz(): A {{ new A; }};
+        foo(): String {"Therefore "};
+    };
+    class Main {
+        main(): Object {
+            let io: IO <- new IO,
+                b : B  <- new B,
+                c : C  <- new C
+            in {
+                io.out_string(c.bar().foo());
+                io.out_string(b.baz().foo());
+                io.out_string(b.bar().baz().foo());
+            }
+        };
+    };
+    \end{lstlisting}
+    What does this code currently print? Modify \hyperref[p1a:ln2]{lines 2--4} so that this program prints ``Therefore I am''.
+    \bigskip
+
+    \textbf{Answer:}
+
+    \newpage
+
+    \item ~
+    \begin{lstlisting}[gobble=4, emph={io,x}, basicstyle=\small]
+    class Main {
+        main(): Object {
+            let io: IO <- new IO, x: Int <- 20 in {
+                io.out_int(x);
+                let x: Int <- 2 in {
+                    x <- (* YOUR CODE HERE *) ;
+                    io.out_int(x);
+                };
+                if x = 22 then
+                    io.out_string("x")
+                else
+                    io.out_int(x)
+                fi;
+            }
+        };
+    };
+    \end{lstlisting}
+    Replace \lstinline!(* YOUR CODE HERE *)! with a single expression that gets this code to print ``2022x''. If it is not possible, explain why.
+    \bigskip
+
+    \textbf{Answer:}
+
+\end{enumerate}
+
+\newpage
+
+% Problem 2
+\item Type derivations are expressed as inductive proofs in the form of trees of logical expressions. For example, the following is the type derivation for $O[\mathrm{Int}/y], M, C \vdash y + y: \mathrm{Int}$:
+\begin{center}
+\begin{prooftree}
+    \hypo[]{O[\mathrm{Int}/y](y) = \mathrm{Int}}
+    \infer1[[Var]]{O[\mathrm{Int}/y],M,C \vdash y: \mathrm{Int}}
+    \hypo[]{O[\mathrm{Int}/y](y) = \mathrm{Int}}
+    \infer1[[Var]]{O[\mathrm{Int}/y],M,C \vdash y:\mathrm{Int}}
+    \infer2[[Arith]]{O[\mathrm{Int}/y],M,C \vdash y+y:\mathrm{Int}}
+\end{prooftree}
+\end{center}
+The [Var] and [Arith] labels refer to the corresponding inference rules in the Cool Reference Manual, section 12.2.\footnote{See \url{https://web.stanford.edu/class/cs143/materials/cool-manual.pdf}, pp.\@ 18--22.}
+
+\smallskip
+
+Consider the following Cool program fragment:
+\begin{lstlisting}[emph={i,b,s,o,a,x,y}, basicstyle=\small]
+class A {
+    i: Int;
+    b: Bool;
+    s: String;
+    o: SELF_TYPE;
+    foo(): SELF_TYPE { o };
+    bar(): Int { 2 * i + 1 };
+};
+
+class B inherits A {
+    a: A;
+    baz(x: Int, y: Int): Bool { x = y };
+    test(): Object { (* PLACEHOLDER *) };
+};
+\end{lstlisting}
+Note that the environments $O$ and $M$ at the start of the method test() are as follows:
+\begin{gather*}
+    O = \emptyset[\mathrm{Int}/i][\mathrm{Bool}/b][\mathrm{String}/s][\mathrm{SELF\_TYPE}_{\mathrm{B}}/o][\mathrm{A}/a][\mathrm{SELF\_TYPE}_{\mathrm{B}}/\mathit{self}], \\[2ex]
+    \begin{aligned}
+    M = \emptyset&[(\mathrm{SELF\_TYPE})/(\mathrm{A},\mathrm{foo})][(\mathrm{Int})/(\mathrm{A},\mathrm{bar})] \\
+                 &[(\mathrm{SELF\_TYPE})/(\mathrm{B},\mathrm{foo})][(\mathrm{Int})/(\mathrm{B},\mathrm{bar})] \\
+                 &[(\mathrm{Int,Int,Bool})/(\mathrm{B},\mathrm{baz})][(\mathrm{Object})/(\mathrm{B},\mathrm{test})].
+    \end{aligned}
+\end{gather*}
+
+For each of the following expressions replacing \lstinline{(* PLACEHOLDER *)}, provide the inferred type of the expression, as well as its derivation as a proof tree.\footnote{To draw proof trees in \LaTeX, consider using the \href{https://ctan.org/pkg/ebproof?lang=en}{\textsf{ebproof}} package. You can also use the tree in the template as an example.} For brevity, you may omit subtyping relations where the same type is on both sides (e.g., $\mathrm{Bool} \le \mathrm{Bool}$). You also do not need to label each step with the inference rule name like we did above.
+
+\newpage
+
+\begin{enumerate}
+    \item \lstinline[keepspaces=true, emph={s,b,i}]|{ s <- "world!"; b <- self.baz(i, 1); }|
+
+        \textbf{Answer}:
+        \begin{center} \scriptsize
+        \begin{prooftree}[separation=1.5em]
+            \hypo{TODO} % Your Answer Here
+            \infer1{O, M, \mathrm{B} \vdash \{\, s \gets \mathtt{``world!"}; b \gets \kw{self}.\mathrm{baz}(i, 1); \,\} : TODO}
+        \end{prooftree}
+        \end{center}
+        \bigskip
+
+    \item \lstinline[keepspaces=true, emph={a,b,c}]{let c: SELF_TYPE <- self.foo() in (let b: B <- c in (a <- b))}
+
+        \textbf{Answer}:
+        \begin{center} \scriptsize
+        \begin{prooftree}[separation=1.5em]
+            \hypo{TODO} % Your Answer Here
+            \infer1{O, M, \mathrm{B} \vdash \kw{let}\ c\mathpunct{:} \mathrm{SELF\_TYPE} \gets \kw{self}.\mathrm{foo}()\ \kw{in}\ (\kw{let}\ b\mathpunct{:} \mathrm{B} \gets c\ \kw{in}\ (a \gets b)) : TODO}
+        \end{prooftree}
+        \end{center}
+        \bigskip
+
+    \item \lstinline[keepspaces=true, emph={a,b}]{if b then a.foo() else self.foo() fi}
+
+        \textbf{Answer}:
+        \begin{center} \scriptsize
+        \begin{prooftree}[separation=1.5em]
+            \hypo{TODO} % Your Answer Here
+            \infer1{O, M, \mathrm{B} \vdash \kw{if}\ b\ \kw{then}\ a.\mathrm{foo}()\ \kw{else}\ \kw{self}.\mathrm{foo}()\ \kw{fi} : TODO}
+        \end{prooftree}
+        \end{center}
+\end{enumerate}
+
+\newpage
+
+% Problem 3
+\item Consider the following Cool program:
+\begin{lstlisting}[emph={b}, basicstyle=\small]
+class Main {
+    b: B;
+    main(): Object {{
+        b <- new B;
+        b.foo();
+    }};
+};
+\end{lstlisting}
+Now consider the following implementations of the classes A and B. Analyze each version of the classes to determine if the resulting program will pass type checking and, if it does, whether it will execute without runtime errors. Please include a brief (1--2 sentences) explanation along with your answer.  Note it is not sufficient to simply copy the output of the reference Cool compiler: if it fails type checking be specific about which hypotheses cannot be satisfied for which rules.
+
+\begin{enumerate}
+    \item ~\\
+    \begin{minipage}{2.4in}
+    \begin{lstlisting}[gobble=4, emph={i,j,a}, basicstyle=\small]
+    class A {
+        i: Int <- 1;
+        a: SELF_TYPE <- new A;
+        foo(): Int {i};
+    };
+
+    class B inherits A {
+        j: Int <- 1;
+        baz(): Int {i <- 2 + i};
+        foo(): Int {
+            j <- a.baz() + a.foo()
+        };
+    };
+    \end{lstlisting}
+    \end{minipage}%
+    \begin{minipage}{\linewidth-2.4in}
+    \textbf{Answer:} % Fill In
+    \end{minipage}
+
+    \item ~\\
+    \begin{minipage}{2.4in}
+    \begin{lstlisting}[gobble=4, emph={i,j,a}, basicstyle=\small]
+    class A {
+        i: Int <- 1;
+        a: SELF_TYPE;
+        foo(): Int {i};
+    };
+
+    class B inherits A {
+        j: Int <- 1;
+        baz(): Int {i <- i + j};
+        foo(): Int {{
+            a <- new SELF_TYPE;
+            j <- a@B.baz() + a.foo();
+        }};
+    };
+    \end{lstlisting}
+    \end{minipage}%
+    \begin{minipage}{\linewidth-2.4in}
+    \textbf{Answer:} % Fill In
+    \end{minipage}
+\end{enumerate}
+
+\newpage
+
+% Problem 4
+\item Consider the following extensions to Cool:
+\begin{enumerate}
+
+    \item Tuples.
+    \begin{align*}
+        \mathit{expr} &\Coloneqq \ldots \\
+                      &\gor \kw{new}\ \angl{\ \mathrm{TYPE}\ \Brack{, \mathrm{TYPE}}^*\ }\ [\ \mathit{expr}\ \Brack{, \mathit{expr}}^* \ ] \\
+                      &\gor \mathit{expr}\ [\ \mathrm{INT} \ ]
+    \end{align*}
+
+    A tuple is a fixed-size list of values of potentially different types. Empty tuples are not allowed. We define a new family of types called \emph{tuple types} $\angl{T_1, T_2, \ldots, T_n}$, where $T_1, T_2, \ldots, T_n$ could be any type in Cool (including SELF\_TYPE and other tuple types). Note that the entire hierarchy of tuple types still has Object as its topmost supertype. Additionally, the subtype relation between tuple types is defined as follows:
+    \[
+        \angl{T_1, T_2, \ldots, T_n} \le \angl{T'_1, T'_2, \ldots, T'_n} \quad \text{if and only if } T_i \le T'_i \text{ for all $i$}.
+    \]
+
+    A tuple object can be initialized with an expression similar to
+    \[my\_tuple\colon \angl{\mathrm{Int},\mathrm{Object}} \gets \kw{new}\ \angl{\mathrm{Int},\mathrm{String}} [42, \mathtt{``answer"}];\]
+    Thereafter, the $i$\textsuperscript{th} element in the tuple can be accessed as ``$\mathit{my\_tuple}[i]$''. Tuple elements are 0-indexed. The tuple index is an integer literal that is always known at compile time.
+
+    \smallskip
+
+    Provide new typing rules for Cool which handle the typing judgments for the two new forms of expressions.
+    As an example, your type rules should ensure the following given the earlier declaration:
+    \[
+        O, M, C \vdash \mathit{my\_tuple}[0] : \mathrm{Int} \qquad\qquad
+        O, M, C \vdash \mathit{my\_tuple}[1] : \mathrm{Object}
+    \]
+
+    \emph{Hint: See [New] in the Cool manual for an example that deals with SELF\_TYPE in a way similar to how you will have to.}
+
+    \bigskip
+
+    \textbf{Answer:}
+        \begin{center}
+        \begin{prooftree}
+            \hypo{TODO_1} % Fill in
+            \infer[no rule]1{TODO_2}
+            \infer1[[Tuple-New]]{O, M, C \vdash \kw{new}\ \angl{T_1, T_2, \ldots, T_n }\ [e_1, e_2, \ldots, e_m] : TODO}
+        \end{prooftree}
+        \bigskip
+        \bigskip
+
+        \begin{prooftree}
+            \hypo{TODO} % Your Answer Here
+            \infer1[[Tuple-Index]]{O, M, C \vdash e[i] : TODO}
+        \end{prooftree}
+        \end{center}
+    \newpage
+    \item Permissive method overriding.
+
+    In Cool a subtype can only override a method with a method with exactly the same formal parameters and return type. Or as judgements (with some abuse of notation to quantify over the elements in environments):
+    \begin{center}
+    \begin{prooftree}
+        \hypo{T_i = S_i \quad \forall i \in \{1, \ldots, n+1\}}
+        \infer1[Method Subtype]{(T_1, \ldots, T_n, T_{n+1}) \leq (S_1, \ldots, S_n, S_{n+1})}
+    \end{prooftree}
+    \end{center} \smallskip
+    \begin{center}
+    \begin{prooftree}
+        \hypo{T_c = T_p \quad \lor \quad (T_c ~ \kw{inherits} ~ T_p' \land T_p' \leq T_p)}
+        \infer[no rule]1{M \vdash \forall m \in M(T_p)\colon M(T_c, m) \leq M(T_p, m)}
+        \infer1[Class Subtype]{M \vdash T_c \leq T_p}
+    \end{prooftree}
+    \end{center}
+
+    The Method Subtype rule says that if a class $X$ has a method $f$ and class $Y$ has a method $g$, to establish that $f$ conforms to $g$ (i.e., $M(X, f) \leq M(Y, g)$), we must show $M(X, f) = (T_1, ..., T_n, T_{n+1}) = (S_1, ..., S_n, S_{n+1}) = M(Y, g)$.
+
+    The Class Subtype rules says that for a class $T_c$ to be considered a subtype of a class $T_p$ we must establish two things:
+    \begin{itemize}
+        \item $T_c$ must either be equal to $T_p$ or it must inherit from some class $T_p'$ where $T_p'$ is a subtype of $T_p$.
+        \item And for every method $m$ on $T_p$, $T_c$ must also have a method $m$ such that the types of the methods are conforming (as defined by the Method Subtype rule). I.e., $M(T_c, m) \le M(T_p, m)$.
+    \end{itemize}
+    Note in Cool that we consider it an error for $T_c$ to inherit from $T_p$ but fail the second test.
+
+    The Method Subtype rule is more restrictive than necessary to ensure type safety.  Rewrite it with new hypotheses so that $T_i$ need not equal $S_i$.  Note your solution should still ensure type safety without changing the rules for dispatch. Specifically, given $C \le P$ with a method $m$ if
+    \[
+        \mathit{out} \gets (p\mathpunct{:} P).m(e_1, e_2, \ldots, e_n);
+    \]
+    type checks then so should
+    \[
+        \mathit{out} \gets (c\mathpunct{:} C).m(e_1, e_2, \ldots, e_n);
+    \]
+    for the same arguments and output variable.
+
+    \bigskip
+
+    \textbf{Answer:}
+    \begin{center}
+    \begin{prooftree}
+        \hypo{TODO}
+        \infer1[Method Subtype]{(T_1, \ldots, T_n, T_{n+1}) \leq (S_1, \ldots, S_n, S_{n+1})}
+    \end{prooftree}
+    \end{center}
+
+    \newpage
+    \item Primitive types.
+
+    Cool has a type hierarchy in which every type is a subtype of $\mathrm{Object}$. However, many programming languages\footnote{Examples include Java and JavaScript.} have a notion of \emph{primitive types,} where ``simple'' values like integers and Boolean values are considered primitive values and not objects.
+
+    Now, most Cool code would continue to work if $\mathrm{Int}$ and $\mathrm{Bool}$ are no longer considered subtypes of $\mathrm{Object}$. However, there are two forms of expressions that would have undefined behavior without adjustments to their typing rules. Identify which forms of expression would be undefined and explain why it would be undefined.
+
+    \bigskip
+
+    \textbf{Answer:}
+
+\end{enumerate}
+
+\newpage
+
+% Problem 5
+\item Consider the following assembly language used to program a stack ($r$, $r_1$, and $r_2$ denote arbitrary registers):
+    \begin{itemize}
+        \item $\kw{push}\ r$: copies the value of $r$ and pushes it onto the stack.
+        \item $\kw{top}\ r$: copies the value at the top of the stack into $r$. This command does not modify the stack.
+        \item $\kw{pop}$: discards the value at the top of the stack.
+        \item $\kw{swap}$: swaps the value at top of the stack with the value right beneath it. E.g., if the stack was $\angl{\$,\ldots, 5, 2}$ \kw{swap} would change the stack to be $\angl{\$, \ldots, 2, 5}$
+        \item $r_1 \mathbin{{*}{=}} r_2$: multiplies $r_1$ and $r_2$ and saves the result in $r_1$. $r_1$ may be the same as $r_2$.
+        \item $r_1 \mathbin{{/}{=}} r_2$: divides $r_1$ with $r_2$ and saves the result in $r_1$. $r_1$ may be the same as $r_2$. Remainders are discarded (e.g., $5 / 2 = 2$).
+        \item $r_1 \mathbin{{+}{=}} r_2$: adds $r_1$ and $r_2$ and saves the result in $r_1$. $r_1$ may be the same as $r_2$.
+        \item $r_1 \mathbin{{-}{=}} r_2$: subtracts $r_2$ from $r_1$ and saves the result in $r_1$. $r_1$ may be the same as $r_2$.
+        \item $\kw{jump}\ r$: jumps to the line number in $r$ and resumes execution.
+        \item $\kw{print}\ r$: prints the value in $r$ to the console.
+    \end{itemize}
+The machine has two registers available to the program: \textbf{reg1}, and \textbf{reg2}. The stack is permitted to grow to a finite, but very large, size. If an invalid line number is invoked, a number is divided by zero, \kw{top} or \kw{pop} is executed on an empty stack, \kw{swap} is executed on stack with less than 2 elements, or the maximum stack size is exceeded, the machine crashes.
+
+\bigskip
+
+Write code to enumerate and print the factorials ($F_n = n \times F_{n-1}$ where $F_1 = 1$; e.g., $1, 2, 6, 24, \ldots$) starting at $F_1$. Assume that the code will be placed at line 100, and will be invoked by pushing 1, 1 onto the stack $\angl{\$, \ldots, 1, 1}$, storing 100 in \lstinline[language=asm]{reg1}, and running \lstinline[language=asm]{jump reg1}.
+
+Your code should use the \kw{print} opcode to display numbers in the sequence. You may not hardcode constants nor use any other instructions besides the ones given above. There is no need to keep the number in memory after it has been printed out.  Your code should not terminate (or crash) after any amount of time.  Assume that registers and the stack can hold arbitrarily large integers so computation will never overflow.
+
+Hint: it may help to comment each line with a symbolic machine state and think about what the state the code should be in at the end.
+(You are not required to do this but it will help us give you partial credit if you do.)
+E.g.:
+
+\begin{lstlisting}[language=asm, mathescape, numbers=none]
+// initial:  reg1=$100$   reg2=        stack=$\angl{n, F_{n-1}}$
+\end{lstlisting}
+\begin{lstlisting}[language=asm, mathescape, firstnumber=100]
+top reg2  // reg1=$100$   reg2=$F_{n-1}$   stack=$\angl{n, F_{n-1}}$
+pop       // reg1=$100$   reg2=$F_{n-1}$   stack=$\angl{n }$
+\end{lstlisting}
+\begin{lstlisting}[language=asm, mathescape, numbers=none]
+// final:    ???
+\end{lstlisting}
+
+\newpage
+
+\textbf{Answer:}
+
+\begin{lstlisting}[language=asm, mathescape, numbers=none]
+// initial:      reg1=$100$       reg2=      stack=$\angl{n, F_{n-1}}$
+\end{lstlisting}
+\begin{lstlisting}[language=asm, mathescape, firstnumber=100]
+top reg2      // reg1=$100$       reg2=$F_{n-1}$   stack=$\angl{n, F_{n-1}}$
+pop           // reg1=$100$       reg2=$F_{n-1}$   stack=$\angl{n}$
+... TODO
+\end{lstlisting}
+\begin{lstlisting}[language=asm, mathescape,numbers=none]
+// final:        ???
+\end{lstlisting}
+\end{enumerate}
+\end{document}
